@@ -1,10 +1,8 @@
 import io
 import os
-import datetime as dt
 
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -185,7 +183,6 @@ with st.sidebar:
         default=["잎 수", "지상부 길이", "지하부 길이"],
         help="복수 선택 가능. 그래프에 가로 막대 그래프로 나란히 표시됩니다.",
     )
-
     st.divider()
     st.info("📎 CSV를 업로드하면 각 탭에 분석 결과가 표시됩니다.")
     st.info("ℹ️ 인코딩(utf-8-sig / cp949)과 열 이름을 자동으로 처리합니다.")
@@ -337,7 +334,7 @@ with tabs[1]:
                         mode="lines",
                         name="온도",
                         line=dict(color="#e74c3c", width=2),
-                        hovertemplate="%(date)s<br>온도: %(y).1f °C<extra></extra>",
+                        hovertemplate="%{x|%Y-%m-%d}<br>온도: %{y:.1f} °C<extra></extra>",
                     )
                     hum_t = go.Scatter(
                         x=daily["date"],
@@ -345,7 +342,7 @@ with tabs[1]:
                         mode="lines",
                         name="습도",
                         line=dict(color="#3498db", width=2),
-                        hovertemplate="%(date)s<br>습도: %(y).1f %%<extra></extra>",
+                        hovertemplate="%{x|%Y-%m-%d}<br>습도: %{y:.1f} %%<extra></extra>",
                         yaxis="y2",
                     )
                     fig = make_subplots(
@@ -446,9 +443,9 @@ with tabs[2]:
             if bar_cols:
                 n = len(bar_cols)
                 if n == 1:
-                    figs = [growth_bar(growth_df, bar_cols[0][0], bar_cols[0][1], bar_cols[0][2])]
-                    if figs[0] is not None:
-                        st.plotly_chart(figs[0], width="stretch")
+                    fig_single = growth_bar(growth_df, bar_cols[0][0], bar_cols[0][1], bar_cols[0][2])
+                    if fig_single is not None:
+                        st.plotly_chart(fig_single, width="stretch")
                 else:
                     fig = make_subplots(
                         rows=1,
@@ -487,42 +484,34 @@ with tabs[2]:
             if "생중량" in growth_df.columns:
                 fw_data = growth_df["생중량"].dropna()
                 if len(fw_data) >= 4:
-                    try:
-                        fig = go.Figure()
-                        fig.add_trace(
-                            go.Box(
-                                y=fw_data,
-                                name="생중량",
-                                fillcolor="#2ecc71",
-                                marker=dict(color="#2ecc71"),
-                                boxpoints="outliers",
-                                jitter=0.3,
-                                pointpos=-1.8,
-                                hovertemplate="생중량: %{y:.2f} g<extra></extra>",
-                            )
+                    fig = go.Figure()
+                    fig.add_trace(
+                        go.Box(
+                            y=fw_data,
+                            name="생중량",
+                            fillcolor="#2ecc71",
+                            marker=dict(color="#2ecc71"),
+                            boxpoints="outliers",
+                            jitter=0.3,
+                            pointpos=-1.8,
+                            hovertemplate="생중량: %{y:.2f} g<extra></extra>",
                         )
-                        q1, q3 = fw_data.quantile([0.25, 0.75])
-                        iqr = q3 - q1
-                        upper = q3 + 1.5 * iqr
-                        lower = q1 - 1.5 * iqr
-                        fig.add_hline(y=upper, line_dash="dot", line_color="gray", annotation_text="상위 경계")
-                        fig.add_hline(y=lower, line_dash="dot", line_color="gray", annotation_text="하위 경계")
-                        fig.update_layout(
-                            title="개체별 생중량 분포 (박스플롯)",
-                            yaxis_title="생중량 (g)",
-                            width=520,
-                            height=340,
-                            margin=dict(l=50, r=20, t=40, b=40),
-                            font=dict(family="Malgun Gothic, Apple SD Gothic Neo, sans-serif"),
-                        )
-                        st.plotly_chart(fig, width="stretch")
-                    except Exception:
-                        fig2, ax = plt.subplots(figsize=(6, 3.4))
-                        ax.boxplot(fw_data.values, patch_artist=True, boxprops=dict(facecolor="#2ecc71"))
-                        ax.set_title("개체별 생중량 분포")
-                        ax.set_ylabel("생중량 (g)")
-                        ax.set_xticklabels(["개체"])
-                        st.pyplot(fig2)
+                    )
+                    q1, q3 = fw_data.quantile([0.25, 0.75])
+                    iqr = q3 - q1
+                    upper = q3 + 1.5 * iqr
+                    lower = q1 - 1.5 * iqr
+                    fig.add_hline(y=upper, line_dash="dot", line_color="gray", annotation_text="상위 경계")
+                    fig.add_hline(y=lower, line_dash="dot", line_color="gray", annotation_text="하위 경계")
+                    fig.update_layout(
+                        title="개체별 생중량 분포 (박스플롯)",
+                        yaxis_title="생중량 (g)",
+                        width=520,
+                        height=340,
+                        margin=dict(l=50, r=20, t=40, b=40),
+                        font=dict(family="Malgun Gothic, Apple SD Gothic Neo, sans-serif"),
+                    )
+                    st.plotly_chart(fig, width="stretch")
                 else:
                     st.info("분포 그래프를 그리기에 개체 수가 너무 적어요.")
             else:
@@ -531,7 +520,7 @@ with tabs[2]:
             st.divider()
             st.header("상관관계 분석 (산점도 + 추세선)")
             st.caption(
-                "상관계수 r은 -1 ~ 1 사이의 값으로, 1에 가까울수록 함께 증가, -1에 가까울수록 한쪽이 증가할 때 다른 쪽이 감소하는関係을 나타냅니다."
+                "상관계수 r은 -1 ~ 1 사이의 값으로, 1에 가까울수록 함께 증가, -1에 가까울수록 한쪽이 증가할 때 다른 쪽이 감소하는 관계를 나타냅니다."
             )
 
             if "잎 수" in growth_df.columns and "생중량" in growth_df.columns:
